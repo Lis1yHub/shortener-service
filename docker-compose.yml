@@ -1,0 +1,10 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: shortener-postgres
+    environment:
+      POSTGRES_DB: shortener_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
