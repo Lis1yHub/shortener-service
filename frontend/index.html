@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>URL Shortener</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            display: none;
+        }
+
+        a {
+            color: blue;
+        }
+
+        .stats {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>URL Shortener</h1>
+
+
+<input
+        id="urlInput"
+        type="text"
+        placeholder="Введите длинную ссылку">
+
+
+<button onclick="shortenUrl()">
+    Сократить
+</button>
+
+
+<div class="result" id="result">
+
+    <p>
+        Ваша короткая ссылка:
+    </p>
+
+    <a id="shortLink" target="_blank"></a>
+
+
+    <div class="stats">
+        <button onclick="getStats()">
+            Показать статистику
+        </button>
+
+        <p id="clicks"></p>
+    </div>
+
+</div>
+
+
+<script>
+
+    let currentShortCode = "";
+
+
+    async function shortenUrl() {
+
+        const url = document.getElementById("urlInput").value;
+
+
+        const response = await fetch(
+            "http://localhost:8080/api/links",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    originalUrl: url
+                })
+            }
+        );
+
+
+        if (!response.ok) {
+            alert("Ошибка создания ссылки");
+            return;
+        }
+
+
+        const data = await response.json();
+
+
+        currentShortCode = data.shortCode;
+
+
+        const link = document.getElementById("shortLink");
+
+        link.href = data.shortUrl;
+        link.textContent = data.shortUrl;
+
+
+        document.getElementById("result").style.display = "block";
+
+    }
+
+
+
+    async function getStats() {
+
+
+        const response = await fetch(
+            `http://localhost:8080/api/links/${currentShortCode}/stats`
+        );
+
+
+        const data = await response.json();
+
+
+        document.getElementById("clicks").textContent =
+            "Количество переходов: " + data.clicks;
+
+    }
+
+</script>
+
+
+</body>
+</html>
