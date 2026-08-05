@@ -3,6 +3,9 @@ package com.natasha.shortener_service.controllers;
 import com.natasha.shortener_service.dto.CreateLinkRequest;
 import com.natasha.shortener_service.dto.LinkResponse;
 import com.natasha.shortener_service.dto.LinkStatsResponse;
+import com.natasha.shortener_service.exceptions.RateLimitExceededException;
+import com.natasha.shortener_service.services.RateLimitService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
@@ -17,9 +20,18 @@ import com.natasha.shortener_service.services.LinkService;
 public class LinkController {
 
     private final LinkService linkService;
+    private final RateLimitService rateLimitService;
 
     @PostMapping
-    public ResponseEntity<LinkResponse> createLink(@Valid @RequestBody CreateLinkRequest request) {
+    public ResponseEntity<LinkResponse> createLink(
+            @Valid @RequestBody CreateLinkRequest request,
+            HttpServletRequest httpRequest) {
+
+        String ip = httpRequest.getRemoteAddr();
+
+        if (rateLimitService.isRateLimited(ip)) {
+            throw  new RateLimitExceededException();
+        }
 
         Link link = linkService.createLink(request);
 

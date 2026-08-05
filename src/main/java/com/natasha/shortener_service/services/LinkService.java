@@ -2,9 +2,10 @@ package com.natasha.shortener_service.services;
 
 import com.natasha.shortener_service.dto.CreateLinkRequest;
 import com.natasha.shortener_service.exceptions.LinkExpiredException;
-import com.natasha.shortener_service.exceptions.LinkNotFoundException;
 import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.stereotype.Service;
 import com.natasha.shortener_service.repositories.LinkRepository;
 
@@ -16,6 +17,7 @@ import java.util.UUID;
 public class LinkService {
 
     private final LinkRepository linkRepository;
+    private final LinkLookupService linkLookupService;
 
     public Link createLink(CreateLinkRequest linkRequest) {
 
@@ -29,9 +31,10 @@ public class LinkService {
         return linkRepository.save(link);
     }
 
+    @CachePut(value = "links", key = "#shortCode")
     public Link getLinkForRedirect(String shortCode) {
 
-        Link link = getLinkByShortCode(shortCode);
+        Link link = linkLookupService.getLinkByShortCode(shortCode);
 
         if (link.getExpiresAt() != null && link.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new LinkExpiredException(shortCode);
@@ -44,27 +47,22 @@ public class LinkService {
 
     public Link getLinkInfo(String shortCode) {
 
-        return getLinkByShortCode(shortCode);
+        return linkLookupService.getLinkByShortCode(shortCode);
     }
 
+    @CacheEvict(value="links", key="#shortCode")
     public void deleteLink(String shortCode) {
 
-        Link link = getLinkByShortCode(shortCode);
+        Link link = linkLookupService.getLinkByShortCode(shortCode);
 
         linkRepository.delete(link);
     }
 
     public int getLinkStats(String shortCode) {
 
-        Link link = getLinkByShortCode(shortCode);
+        Link link = linkLookupService.getLinkByShortCode(shortCode);
 
         return link.getClicks();
-    }
-
-    private Link getLinkByShortCode(String shortCode) {
-
-        return linkRepository.findByShortCode(shortCode)
-                .orElseThrow(() -> new LinkNotFoundException(shortCode));
     }
 
     private String generateShortCode() {

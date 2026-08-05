@@ -2,14 +2,18 @@ services:
   postgres:
     image: postgres:15
     container_name: shortener-postgres
+
     environment:
       POSTGRES_DB: shortener_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
+
     ports:
       - "5432:5432"
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d shortener_db"]
       interval: 5s
@@ -17,16 +21,37 @@ services:
       retries: 10
       start_period: 10s
 
+  redis:
+    image: redis:7
+    container_name: shortener-redis
+
+    ports:
+      - "6379:6379"
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   shortener-service:
     build: .
     container_name: shortener-service
+
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/shortener_db
       DB_USERNAME: postgres
       DB_PASSWORD: secret
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
     ports:
       - "8080:8080"
 
