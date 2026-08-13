@@ -1,5 +1,6 @@
 package com.natasha.shortener_service.controllers;
 
+import com.natasha.shortener_service.client.AnalyticsClient;
 import com.natasha.shortener_service.dto.CreateLinkRequest;
 import com.natasha.shortener_service.dto.LinkResponse;
 import com.natasha.shortener_service.dto.LinkStatsResponse;
@@ -21,6 +22,7 @@ public class LinkController {
 
     private final LinkService linkService;
     private final RateLimitService rateLimitService;
+    private final AnalyticsClient analyticsClient;
 
     @PostMapping
     public ResponseEntity<LinkResponse> createLink(
@@ -71,6 +73,14 @@ public class LinkController {
         response.setClicks(clicks);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @GetMapping("/{shortCode}/analytics")
+    public ResponseEntity<Integer> getAnalytics(@PathVariable String shortCode) {
+
+        Integer clicksCount = analyticsClient.getClicksCount(shortCode);
+
+        return ResponseEntity.ok(clicksCount);
     }
 
 }

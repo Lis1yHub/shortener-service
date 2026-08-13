@@ -1,11 +1,13 @@
 package com.natasha.shortener_service.services;
 
 import com.natasha.shortener_service.dto.CreateLinkRequest;
+import com.natasha.shortener_service.events.LinkClickedEvent;
 import com.natasha.shortener_service.exceptions.LinkExpiredException;
 import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import com.natasha.shortener_service.repositories.LinkRepository;
 
@@ -18,6 +20,7 @@ public class LinkService {
 
     private final LinkRepository linkRepository;
     private final LinkLookupService linkLookupService;
+    private final KafkaTemplate<String, LinkClickedEvent> kafkaTemplate;
 
     public Link createLink(CreateLinkRequest linkRequest) {
 
@@ -32,7 +35,7 @@ public class LinkService {
     }
 
     @CachePut(value = "links", key = "#shortCode")
-    public Link getLinkForRedirect(String shortCode) {
+    public Link getLinkForRedirect(String shortCode, String userAgent, String correlationId) {
 
         Link link = linkLookupService.getLinkByShortCode(shortCode);
 
@@ -42,7 +45,18 @@ public class LinkService {
 
         link.setClicks(link.getClicks() + 1);
 
-        return linkRepository.save(link);
+        Link savedLink = linkRepository.save(link);
+
+        LinkClickedEvent event = new LinkClickedEvent(
+                link.getShortCode(),
+                link.getOriginalUrl(),
+                LocalDateTime.now(),
+                userAgent,
+                correlationId);
+
+        kafkaTemplate.send("link-clicks", shortCode, event);
+
+        return savedLink;
     }
 
     public Link getLinkInfo(String shortCode) {
