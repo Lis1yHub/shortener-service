@@ -5,6 +5,7 @@ import com.natasha.shortener_service.events.LinkClickedEvent;
 import com.natasha.shortener_service.exceptions.LinkExpiredException;
 import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
+import org.slf4j.MDC;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -35,7 +36,7 @@ public class LinkService {
     }
 
     @CachePut(value = "links", key = "#shortCode")
-    public Link getLinkForRedirect(String shortCode, String userAgent, String correlationId) {
+    public Link getLinkForRedirect(String shortCode, String userAgent) {
 
         Link link = linkLookupService.getLinkByShortCode(shortCode);
 
@@ -46,6 +47,8 @@ public class LinkService {
         link.setClicks(link.getClicks() + 1);
 
         Link savedLink = linkRepository.save(link);
+
+        String correlationId = MDC.get("correlationId");
 
         LinkClickedEvent event = new LinkClickedEvent(
                 link.getShortCode(),
