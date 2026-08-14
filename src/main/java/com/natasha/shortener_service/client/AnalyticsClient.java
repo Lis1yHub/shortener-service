@@ -5,6 +5,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientException;
 
+import java.time.Duration;
+import java.util.concurrent.TimeoutException;
+
 @Component
 @RequiredArgsConstructor
 public class AnalyticsClient {
@@ -18,11 +21,12 @@ public class AnalyticsClient {
                     .uri("/api/analytics/{shortCode}", shortCode)
                     .retrieve()
                     .bodyToMono(Integer.class)
+                    .timeout(Duration.ofSeconds(3))
+                    .onErrorReturn(TimeoutException.class, 0)
                     .block();
 
         } catch (WebClientException exception) {
             return 0;
         }
-
     }
 }
