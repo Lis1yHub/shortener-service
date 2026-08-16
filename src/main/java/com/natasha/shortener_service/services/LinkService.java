@@ -3,8 +3,10 @@ package com.natasha.shortener_service.services;
 import com.natasha.shortener_service.dto.CreateLinkRequest;
 import com.natasha.shortener_service.events.LinkClickedEvent;
 import com.natasha.shortener_service.exceptions.LinkExpiredException;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -22,6 +24,7 @@ public class LinkService {
     private final LinkRepository linkRepository;
     private final LinkLookupService linkLookupService;
     private final KafkaTemplate<String, LinkClickedEvent> kafkaTemplate;
+    private final MeterRegistry meterRegistry;
 
     public Link createLink(CreateLinkRequest linkRequest) {
 
@@ -32,7 +35,11 @@ public class LinkService {
         link.setCreatedAt(LocalDateTime.now());
         link.setExpiresAt(linkRequest.getExpiresAt());
 
-        return linkRepository.save(link);
+        Link savedLink = linkRepository.save(link);
+
+        meterRegistry.counter("links.creation").increment();
+
+        return savedLink;
     }
 
     @CachePut(value = "links", key = "#shortCode")
@@ -47,6 +54,8 @@ public class LinkService {
         link.setClicks(link.getClicks() + 1);
 
         Link savedLink = linkRepository.save(link);
+
+        meterRegistry.counter("links.clicks").increment();
 
         String correlationId = MDC.get("correlationId");
 
