@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: shortener-postgres
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: shortener-postgres
+
+  template:
+    metadata:
+      labels:
+        app: shortener-postgres
+
+    spec:
+      containers:
+        - name: shortener-postgres
+          image: postgres:15
+
+          ports:
+            - containerPort: 5432
+
+          env:
+            - name: POSTGRES_DB
+              value: shortener_db
+
+            - name: POSTGRES_USER
+              value: postgres
+
+            - name: POSTGRES_PASSWORD
+              value: secret

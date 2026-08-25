@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: shortener-config
+
+data:
+  SHORTENER_DB_URL: jdbc:postgresql://shortener-postgres:5432/shortener_db
+  ANALYTICS_DB_URL: jdbc:postgresql://analytics-postgres:5432/analytics_db
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  KAFKA_BOOTSTRAP_SERVERS: kafka:29092
