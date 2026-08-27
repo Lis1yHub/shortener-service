@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,9 @@ public class LinkController {
     private final LinkService linkService;
     private final RateLimitService rateLimitService;
     private final AnalyticsClient analyticsClient;
+
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     @PostMapping
     public ResponseEntity<LinkResponse> createLink(
@@ -38,7 +42,7 @@ public class LinkController {
         Link link = linkService.createLink(request);
 
         LinkResponse response = new LinkResponse();
-        response.setShortUrl("http://localhost:8080/" + link.getShortCode());
+        response.setShortUrl(baseUrl + "/" + link.getShortCode());
         response.setShortCode(link.getShortCode());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
