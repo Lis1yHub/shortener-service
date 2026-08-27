@@ -7,10 +7,10 @@ scrape_configs:
     metrics_path: "/actuator/prometheus"
     static_configs:
       - targets:
-          - "host.docker.internal:8080"
+          - "shortener-service:8080"
 
   - job_name: "analytics-service"
     metrics_path: "/actuator/prometheus"
     static_configs:
       - targets:
-          - "host.docker.internal:8081"
+          - "analytics-service:8081"

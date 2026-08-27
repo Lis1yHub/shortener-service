@@ -5,9 +5,9 @@ services:
     container_name: shortener-postgres
 
     environment:
-      POSTGRES_DB: shortener_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
     ports:
       - "5432:5432"
@@ -22,6 +22,24 @@ services:
       retries: 10
       start_period: 10s
 
+  analytics-postgres:
+    image: postgres:15
+    container_name: analytics-postgres
+
+    environment:
+      POSTGRES_DB: ${ANALYTICS_POSTGRES_DB}
+      POSTGRES_USER: ${ANALYTICS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ANALYTICS_POSTGRES_PASSWORD}
+
+    volumes:
+      - analytics_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_POSTGRES_USER} -d ${ANALYTICS_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   redis:
     image: redis:7
@@ -90,18 +108,37 @@ services:
         condition: service_healthy
 
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/shortener_db
-      DB_USERNAME: postgres
-      DB_PASSWORD: secret
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
 
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
 
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
 
     ports:
       - "8080:8080"
 
+  analytics-service:
+    build: ./analytics-service
+    container_name: analytics-service
+
+    depends_on:
+      analytics-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+    environment:
+      DB_URL: ${ANALYTICS_DB_URL}
+      DB_USERNAME: ${ANALYTICS_DB_USERNAME}
+      DB_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+
+    ports:
+      - "8081:8081"
 
   prometheus:
     image: prom/prometheus:latest
@@ -131,5 +168,6 @@ services:
 
 volumes:
   postgres_data:
+  analytics_postgres_data:
   prometheus_data:
   grafana_data:
