@@ -1,28 +1,44 @@
 package com.natasha.shortener_service.services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.natasha.shortener_service.dto.CreateLinkRequest;
 import com.natasha.shortener_service.exceptions.LinkNotFoundException;
 import com.natasha.shortener_service.models.Link;
+import com.natasha.shortener_service.repositories.LinkRepository;
+import com.natasha.shortener_service.repositories.OutboxEventRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.natasha.shortener_service.repositories.LinkRepository;
-
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class LinkServiceTest {
+class LinkServiceTest {
 
     @Mock
     private LinkRepository linkRepository;
+
+    @Mock
+    private LinkLookupService linkLookupService;
+
+    @Mock
+    private MeterRegistry meterRegistry;
+
+    @Mock
+    private Counter counter;
+
+    @Mock
+    private OutboxEventRepository outboxEventRepository;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private LinkService linkService;
@@ -44,11 +60,16 @@ public class LinkServiceTest {
     void createLink_success() {
 
         CreateLinkRequest request = new CreateLinkRequest();
-
         request.setOriginalUrl("https://google.com");
 
-        when(linkRepository.existsByShortCode(any())).thenReturn(false);
-        when(linkRepository.save(any(Link.class))).thenReturn(link);
+        when(linkRepository.existsByShortCode(any()))
+                .thenReturn(false);
+
+        when(linkRepository.save(any(Link.class)))
+                .thenReturn(link);
+
+        when(meterRegistry.counter("links.creation"))
+                .thenReturn(counter);
 
         Link result = linkService.createLink(request);
 
@@ -57,28 +78,57 @@ public class LinkServiceTest {
         assertNotNull(result.getShortCode());
 
         verify(linkRepository).save(any(Link.class));
+        verify(counter).increment();
     }
 
     @Test
     void getLinkInfo_existingShortCode_success() {
 
-        when(linkRepository.findByShortCode("abc12345")).thenReturn(Optional.of(link));
+        when(linkLookupService.getLinkByShortCode("abc12345"))
+                .thenReturn(link);
 
         Link result = linkService.getLinkInfo("abc12345");
 
         assertNotNull(result);
         assertEquals("abc12345", result.getShortCode());
 
-        verify(linkRepository).findByShortCode("abc12345");
+        verify(linkLookupService)
+                .getLinkByShortCode("abc12345");
     }
 
     @Test
     void getLinkInfo_notFound_throwException() {
 
-        when(linkRepository.findByShortCode("wrong")).thenReturn(Optional.empty());
+        when(linkLookupService.getLinkByShortCode("wrong"))
+                .thenThrow(new LinkNotFoundException("wrong"));
 
-        assertThrows(LinkNotFoundException.class, () -> linkService.getLinkInfo("wrong"));
+        assertThrows(
+                LinkNotFoundException.class,
+                () -> linkService.getLinkInfo("wrong")
+        );
 
-        verify(linkRepository).findByShortCode("wrong");
+        verify(linkLookupService)
+                .getLinkByShortCode("wrong");
+    }
+
+    @Test
+    void getLinkForRedirect_whenLinkSaveFails_outboxIsNotSaved() {
+
+        when(linkLookupService.getLinkByShortCode("abc12345"))
+                .thenReturn(link);
+
+        when(linkRepository.save(link))
+                .thenThrow(new RuntimeException("Database error"));
+
+        assertThrows(
+                RuntimeException.class,
+                () -> linkService.getLinkForRedirect(
+                        "abc12345",
+                        "Mozilla/5.0"
+                )
+        );
+
+        verify(outboxEventRepository, never())
+                .save(any());
     }
 }

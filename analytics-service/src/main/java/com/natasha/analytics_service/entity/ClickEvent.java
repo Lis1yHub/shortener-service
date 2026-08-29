@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @NoArgsConstructor
@@ -32,4 +33,7 @@ public class ClickEvent {
 
     @Column(name = "correlation_id", nullable = false)
     private String correlationId;
+
+    @Column(name = "event_id", nullable = false, unique = true)
+    private UUID eventId;
 }

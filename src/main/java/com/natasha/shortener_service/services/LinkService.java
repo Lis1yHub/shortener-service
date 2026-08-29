@@ -1,18 +1,22 @@
 package com.natasha.shortener_service.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.natasha.shortener_service.dto.CreateLinkRequest;
 import com.natasha.shortener_service.events.LinkClickedEvent;
+import com.natasha.shortener_service.exceptions.EventSerializationException;
 import com.natasha.shortener_service.exceptions.LinkExpiredException;
+import com.natasha.shortener_service.models.OutboxEvent;
+import com.natasha.shortener_service.repositories.OutboxEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import com.natasha.shortener_service.repositories.LinkRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,8 +27,9 @@ public class LinkService {
 
     private final LinkRepository linkRepository;
     private final LinkLookupService linkLookupService;
-    private final KafkaTemplate<String, LinkClickedEvent> kafkaTemplate;
     private final MeterRegistry meterRegistry;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     public Link createLink(CreateLinkRequest linkRequest) {
 
@@ -43,6 +48,7 @@ public class LinkService {
     }
 
     @CachePut(value = "links", key = "#shortCode")
+    @Transactional
     public Link getLinkForRedirect(String shortCode, String userAgent) {
 
         Link link = linkLookupService.getLinkByShortCode(shortCode);
@@ -59,14 +65,27 @@ public class LinkService {
 
         String correlationId = MDC.get("correlationId");
 
+        OutboxEvent outboxEvent = new OutboxEvent();
+
         LinkClickedEvent event = new LinkClickedEvent(
                 link.getShortCode(),
                 link.getOriginalUrl(),
                 LocalDateTime.now(),
                 userAgent,
-                correlationId);
+                correlationId,
+                outboxEvent.getId());
 
-        kafkaTemplate.send("link-clicks", shortCode, event);
+        outboxEvent.setAggregateType("Link");
+        outboxEvent.setAggregateId(link.getShortCode());
+        outboxEvent.setEventType("click");
+        try {
+            outboxEvent.setPayload(objectMapper.writeValueAsString(event));
+
+        } catch (JsonProcessingException ex) {
+            throw new EventSerializationException(ex);
+        }
+
+        outboxEventRepository.save(outboxEvent);
 
         return savedLink;
     }

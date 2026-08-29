@@ -1,19 +1,17 @@
 package com.natasha.analytics_service.service;
 
-import com.natasha.analytics_service.entity.ClickEvent;
 import com.natasha.analytics_service.events.LinkClickedEvent;
 import com.natasha.analytics_service.repository.ClickEventRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,55 +27,76 @@ class AnalyticsServiceTest {
     void saveClickEvent_savesEventToRepository() {
 
         LocalDateTime clickedAt = LocalDateTime.now();
+        UUID eventId = UUID.randomUUID();
 
         LinkClickedEvent event = new LinkClickedEvent(
                 "abc123",
                 "https://google.com",
                 clickedAt,
                 "Mozilla/5.0",
-                "correlation-123"
+                "correlation-123",
+                eventId
         );
 
         analyticsService.saveClickEvent(event);
 
-        ArgumentCaptor<ClickEvent> captor =
-                ArgumentCaptor.forClass(ClickEvent.class);
-
-        verify(eventRepository).save(captor.capture());
-
-        ClickEvent savedEvent = captor.getValue();
-
-        assertEquals("abc123", savedEvent.getShortCode());
-        assertEquals("https://google.com", savedEvent.getOriginalUrl());
-        assertEquals(clickedAt, savedEvent.getClickedAt());
-        assertEquals("Mozilla/5.0", savedEvent.getUserAgent());
-        assertEquals("correlation-123", savedEvent.getCorrelationId());
+        verify(eventRepository).insertIfNotExists(
+                "abc123",
+                "https://google.com",
+                clickedAt,
+                "Mozilla/5.0",
+                "correlation-123",
+                eventId
+        );
     }
 
     @Test
-    void saveClickEvent_sameShortCodeTwice_savesTwoClicks() {
+    void saveClickEvent_sameShortCodeWithDifferentEventIds_savesTwoClicks() {
+
+        LocalDateTime firstClickedAt = LocalDateTime.now();
+        LocalDateTime secondClickedAt = LocalDateTime.now();
+
+        UUID firstEventId = UUID.randomUUID();
+        UUID secondEventId = UUID.randomUUID();
 
         LinkClickedEvent firstEvent = new LinkClickedEvent(
                 "abc123",
                 "https://google.com",
-                LocalDateTime.now(),
+                firstClickedAt,
                 "Mozilla/5.0",
-                "correlation-1"
+                "correlation-1",
+                firstEventId
         );
 
         LinkClickedEvent secondEvent = new LinkClickedEvent(
                 "abc123",
                 "https://google.com",
-                LocalDateTime.now(),
+                secondClickedAt,
                 "Mozilla/5.0",
-                "correlation-2"
+                "correlation-2",
+                secondEventId
         );
 
         analyticsService.saveClickEvent(firstEvent);
         analyticsService.saveClickEvent(secondEvent);
 
-        verify(eventRepository, times(2))
-                .save(any(ClickEvent.class));
+        verify(eventRepository).insertIfNotExists(
+                "abc123",
+                "https://google.com",
+                firstClickedAt,
+                "Mozilla/5.0",
+                "correlation-1",
+                firstEventId
+        );
+
+        verify(eventRepository).insertIfNotExists(
+                "abc123",
+                "https://google.com",
+                secondClickedAt,
+                "Mozilla/5.0",
+                "correlation-2",
+                secondEventId
+        );
     }
 
     @Test
@@ -93,5 +112,4 @@ class AnalyticsServiceTest {
 
         verify(eventRepository).countByShortCode(shortCode);
     }
-
 }
