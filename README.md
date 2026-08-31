@@ -151,5 +151,5 @@ docker compose ps
 frontend, REST API, Swagger и короткие ссылки доступны через внешний IP
 без указания порта `8080`.
 
-**Frontend:** http://186.246.7.121/app\
+**Frontend:** http://186.246.7.121/app
 **Swagger:** http://186.246.7.121/swagger-ui/index.html
