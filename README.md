@@ -3,8 +3,8 @@
 Микросервисный сервис для сокращения ссылок, созданный как учебный
 backend-проект.
 
-**Живой сервис:** http://72.56.232.5/app
-**Swagger UI:** http://72.56.232.5/swagger-ui/index.html
+**Живой сервис:** http://186.246.7.121/app
+**Swagger UI:** http://186.246.7.121/swagger-ui/index.html
 
 ## Интерфейс
 
@@ -151,5 +151,5 @@ docker compose ps
 frontend, REST API, Swagger и короткие ссылки доступны через внешний IP
 без указания порта `8080`.
 
-**Frontend:** http://72.56.232.5/app\
-**Swagger:** http://72.56.232.5/swagger-ui/index.html
+**Frontend:** http://186.246.7.121/app\
+**Swagger:** http://186.246.7.121/swagger-ui/index.html
