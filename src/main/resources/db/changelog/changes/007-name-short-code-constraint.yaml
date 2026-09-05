@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 7
+      author: natasha
+
+      changes:
+        - dropUniqueConstraint:
+            tableName: links
+            constraintName: links_short_code_key
+
+        - addUniqueConstraint:
+            tableName: links
+            columnNames: short_code
+            constraintName: uk_links_short_code

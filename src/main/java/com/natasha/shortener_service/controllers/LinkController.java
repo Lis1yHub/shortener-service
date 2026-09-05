@@ -55,7 +55,7 @@ public class LinkController {
 
         LinkResponse response = new LinkResponse();
         response.setShortCode(link.getShortCode());
-        response.setShortUrl("http://localhost:8080/" + link.getShortCode());
+        response.setShortUrl(baseUrl + "/" + link.getShortCode());
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

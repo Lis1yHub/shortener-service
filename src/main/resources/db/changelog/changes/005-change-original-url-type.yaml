@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 5
+      author: natasha
+
+      changes:
+        - modifyDataType:
+            tableName: links
+            columnName: original_url
+            newDataType: TEXT

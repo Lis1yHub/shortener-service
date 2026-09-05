@@ -16,13 +16,13 @@ public class KafkaConfig {
     public DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
             KafkaTemplate<String, LinkClickedEvent> kafkaTemplate
     ) {
-        TopicPartition topicPartition =
-                new TopicPartition("link-clicks-dead-letter", 0);
-
         return new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
                 (record, exception)
-                        -> topicPartition);
+                        -> new TopicPartition(
+                                "link-clicks-dead-letter",
+                        record.partition())
+        );
     }
 
     @Bean
@@ -33,5 +33,4 @@ public class KafkaConfig {
 
         return new DefaultErrorHandler(recoverer, backOff);
     }
-
 }

@@ -7,13 +7,13 @@ spring:
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/analytics_db}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:secret}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
 
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml

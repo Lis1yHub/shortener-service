@@ -1,11 +1,14 @@
 package com.natasha.shortener_service.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RateLimitService {
@@ -16,12 +19,23 @@ public class RateLimitService {
 
         String key = "rate_limit:" + ip;
 
-        Long requests = redisTemplate.opsForValue().increment(key);
+        try {
+            Long requests = redisTemplate.opsForValue().increment(key);
 
-        if (requests == 1) {
-            redisTemplate.expire(key, Duration.ofMinutes(1));
+            if (requests == null) {
+                return false;
+            }
+
+            if (requests == 1) {
+                redisTemplate.expire(key, Duration.ofMinutes(1));
+            }
+
+            return requests > 10;
+
+        } catch (RedisConnectionFailureException ex) {
+            log.warn("Redis is unavailable, rate limiting is temporarily disabled", ex);
+
+            return false;
         }
-
-        return requests > 10;
     }
 }

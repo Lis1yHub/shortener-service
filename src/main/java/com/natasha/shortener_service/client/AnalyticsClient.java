@@ -1,5 +1,6 @@
 package com.natasha.shortener_service.client;
 
+import com.natasha.shortener_service.dto.ClicksResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -20,7 +21,8 @@ public class AnalyticsClient {
             return webClient.get()
                     .uri("/api/analytics/{shortCode}", shortCode)
                     .retrieve()
-                    .bodyToMono(Integer.class)
+                    .bodyToMono(ClicksResponse.class)
+                    .map(clicksResponse -> clicksResponse.clicks())
                     .timeout(Duration.ofSeconds(3))
                     .onErrorReturn(TimeoutException.class, 0)
                     .block();

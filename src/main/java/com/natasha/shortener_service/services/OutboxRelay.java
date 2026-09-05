@@ -1,5 +1,6 @@
 package com.natasha.shortener_service.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.natasha.shortener_service.events.LinkClickedEvent;
 import com.natasha.shortener_service.models.OutboxEvent;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service
@@ -49,8 +51,23 @@ public class OutboxRelay {
 
                 outboxEventRepository.save(event);
 
-            } catch (Exception ex) {
-                log.error("Failed to publish outbox event id={}", event.getId(), ex);
+            } catch (JsonProcessingException ex) {
+
+                event.setStatus(OutboxStatus.FAILED);
+                outboxEventRepository.save(event);
+
+                log.error("Failed to deserialize outbox event id={}", event.getId(), ex);
+
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                log.error("Outbox publishing was interrupted for event id={}",
+                        event.getId(), ex);
+
+                return;
+
+            } catch (ExecutionException ex) {
+
+                 log.error("Failed to publish outbox event to Kafka, event id={}", event.getId(), ex);
             }
         }
     }

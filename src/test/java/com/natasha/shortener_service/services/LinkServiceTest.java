@@ -29,6 +29,9 @@ class LinkServiceTest {
     private LinkLookupService linkLookupService;
 
     @Mock
+    private LinkPersistenceService linkPersistenceService;
+
+    @Mock
     private MeterRegistry meterRegistry;
 
     @Mock
@@ -62,10 +65,7 @@ class LinkServiceTest {
         CreateLinkRequest request = new CreateLinkRequest();
         request.setOriginalUrl("https://google.com");
 
-        when(linkRepository.existsByShortCode(any()))
-                .thenReturn(false);
-
-        when(linkRepository.save(any(Link.class)))
+        when(linkPersistenceService.save(any(Link.class)))
                 .thenReturn(link);
 
         when(meterRegistry.counter("links.creation"))
@@ -77,7 +77,7 @@ class LinkServiceTest {
         assertEquals("https://google.com", result.getOriginalUrl());
         assertNotNull(result.getShortCode());
 
-        verify(linkRepository).save(any(Link.class));
+        verify(linkPersistenceService).save(any(Link.class));
         verify(counter).increment();
     }
 
@@ -112,13 +112,14 @@ class LinkServiceTest {
     }
 
     @Test
-    void getLinkForRedirect_whenLinkSaveFails_outboxIsNotSaved() {
+    void getLinkForRedirect_whenIncrementClicksFails_outboxIsNotSaved() {
 
         when(linkLookupService.getLinkByShortCode("abc12345"))
                 .thenReturn(link);
 
-        when(linkRepository.save(link))
-                .thenThrow(new RuntimeException("Database error"));
+        doThrow(new RuntimeException("Database error"))
+                .when(linkRepository)
+                .incrementClicks("abc12345");
 
         assertThrows(
                 RuntimeException.class,

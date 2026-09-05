@@ -1,5 +1,6 @@
 package com.natasha.analytics_service.controller;
 
+import com.natasha.analytics_service.dto.ClicksResponse;
 import com.natasha.analytics_service.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +17,11 @@ public class AnalyticsController {
     private final AnalyticsService analyticsService;
 
     @GetMapping("/{shortCode}")
-    public ResponseEntity<Integer> getAnalytics(@PathVariable String shortCode) {
+    public ResponseEntity<ClicksResponse> getAnalytics(@PathVariable String shortCode) {
 
-        int clickCount = analyticsService.getClicksCount(shortCode);
+        ClicksResponse clicksResponse = new
+                ClicksResponse(analyticsService.getClicksCount(shortCode));
 
-        return ResponseEntity.ok(clickCount);
+        return ResponseEntity.ok(clicksResponse);
     }
 }

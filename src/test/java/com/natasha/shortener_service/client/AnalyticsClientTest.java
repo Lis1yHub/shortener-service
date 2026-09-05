@@ -1,5 +1,6 @@
 package com.natasha.shortener_service.client;
 
+import com.natasha.shortener_service.dto.ClicksResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
@@ -52,7 +53,7 @@ public class AnalyticsClientTest {
         when(webClient.get()
                 .uri("/api/analytics/{shortCode}", "abc123")
                 .retrieve()
-                .bodyToMono(Integer.class))
+                .bodyToMono(ClicksResponse.class))
                 .thenReturn(Mono.error(new TimeoutException("Test timeout")));
 
         Integer result = analyticsClient.getClicksCount("abc123");

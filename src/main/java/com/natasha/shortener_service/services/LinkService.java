@@ -6,6 +6,8 @@ import com.natasha.shortener_service.dto.CreateLinkRequest;
 import com.natasha.shortener_service.events.LinkClickedEvent;
 import com.natasha.shortener_service.exceptions.EventSerializationException;
 import com.natasha.shortener_service.exceptions.LinkExpiredException;
+import com.natasha.shortener_service.exceptions.LinkNotFoundException;
+import com.natasha.shortener_service.exceptions.ShortCodeGenerationException;
 import com.natasha.shortener_service.models.OutboxEvent;
 import com.natasha.shortener_service.repositories.OutboxEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -13,12 +15,13 @@ import lombok.RequiredArgsConstructor;
 import com.natasha.shortener_service.models.Link;
 import org.slf4j.MDC;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import com.natasha.shortener_service.repositories.LinkRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -30,24 +33,38 @@ public class LinkService {
     private final MeterRegistry meterRegistry;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
+    private final LinkPersistenceService linkPersistenceService;
 
     public Link createLink(CreateLinkRequest linkRequest) {
 
-        Link link = new Link();
+        for (int i = 0; i < 3; i++) {
 
-        link.setShortCode(generateShortCode());
-        link.setOriginalUrl(linkRequest.getOriginalUrl());
-        link.setCreatedAt(LocalDateTime.now());
-        link.setExpiresAt(linkRequest.getExpiresAt());
+            Link link = new Link();
 
-        Link savedLink = linkRepository.save(link);
+            link.setShortCode(generateShortCode());
+            link.setOriginalUrl(linkRequest.getOriginalUrl());
+            link.setCreatedAt(LocalDateTime.now());
+            link.setExpiresAt(linkRequest.getExpiresAt());
 
-        meterRegistry.counter("links.creation").increment();
+            try {
+                Link savedLink = linkPersistenceService.save(link);
+                meterRegistry.counter("links.creation").increment();
 
-        return savedLink;
+                return savedLink;
+
+            } catch (DataIntegrityViolationException ex) {
+
+                if (isShortCodeConflict(ex)) {
+                     continue;
+                } else {
+                    throw ex;
+                }
+            }
+        }
+
+        throw new ShortCodeGenerationException();
     }
 
-    @CachePut(value = "links", key = "#shortCode")
     @Transactional
     public Link getLinkForRedirect(String shortCode, String userAgent) {
 
@@ -57,9 +74,7 @@ public class LinkService {
             throw new LinkExpiredException(shortCode);
         }
 
-        link.setClicks(link.getClicks() + 1);
-
-        Link savedLink = linkRepository.save(link);
+        linkRepository.incrementClicks(shortCode);
 
         meterRegistry.counter("links.clicks").increment();
 
@@ -87,7 +102,7 @@ public class LinkService {
 
         outboxEventRepository.save(outboxEvent);
 
-        return savedLink;
+        return link;
     }
 
     public Link getLinkInfo(String shortCode) {
@@ -95,6 +110,7 @@ public class LinkService {
         return linkLookupService.getLinkByShortCode(shortCode);
     }
 
+    @Transactional
     @CacheEvict(value="links", key="#shortCode")
     public void deleteLink(String shortCode) {
 
@@ -105,23 +121,35 @@ public class LinkService {
 
     public int getLinkStats(String shortCode) {
 
-        Link link = linkLookupService.getLinkByShortCode(shortCode);
+        Optional<Link> optionalLink = linkRepository.findByShortCode(shortCode);
+        Link link = optionalLink.orElseThrow(() -> new LinkNotFoundException(shortCode));
 
         return link.getClicks();
     }
 
     private String generateShortCode() {
 
-        String shortCode;
-
-        do {
-            shortCode = UUID.randomUUID()
-                    .toString()
-                    .substring(0, 8);
-
-        } while (linkRepository.existsByShortCode(shortCode));
+        String shortCode = UUID.randomUUID().toString().substring(0, 8);
 
         return shortCode;
     }
 
+    private boolean isShortCodeConflict(DataIntegrityViolationException ex) {
+
+        Throwable cause = ex;
+        while (cause != null) {
+
+            if (cause.getMessage() != null &&
+                    cause.getMessage()
+                            .contains("uk_links_short_code")) {
+
+                return true;
+
+            } else {
+                cause = cause.getCause();
+            }
+        }
+
+        return false;
+    }
 }
